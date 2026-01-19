@@ -31,24 +31,3 @@ jobs:
 
       - name: Run Tests
         run: poetry run pytest
-
-      - name: Build the package
-        run: poetry build
-
-      - name: Check if version exists on PyPI
-        id: check-version
-        run: |
-          PACKAGE_NAME=$(poetry version | awk '{print $1}')
-          PACKAGE_VERSION=$(poetry version | awk '{print $2}')
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/$PACKAGE_NAME/$PACKAGE_VERSION/json)
-          if [ "$RESPONSE" == "200" ]; then
-            echo "Version $PACKAGE_VERSION already exists on PyPI. Skipping publish step."
-            echo "exists=true" >> $GITHUB_ENV
-          else
-            echo "exists=false" >> $GITHUB_ENV
-          fi
-        shell: bash
-
-      - name: Publish to PyPI (release only)
-        if: env.exists == 'false'
-        run: poetry publish --no-interaction --username __token__ --password ${{ secrets.PYPI_TOKEN }}
