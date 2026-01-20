@@ -21,10 +21,7 @@ class IrregularFacades(Dataset):
         image_paths = list(samples_directory.glob("*.jpg"))
         mask_paths = list(samples_directory.glob("*.png"))
 
-        if len(image_paths) != len(mask_paths):
-            raise IndexError
-
-        self.paths = list(zip(image_paths, mask_paths))
+        self.paths = list(zip(image_paths, mask_paths, strict=True))
 
     @classmethod
     def download(cls) -> IrregularFacades:
