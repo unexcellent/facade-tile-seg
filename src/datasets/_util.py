@@ -19,8 +19,12 @@ class _SegmentationClasses(IntEnum):
     @classmethod
     @abstractmethod
     def convert_image_to_mask(cls, image: np.ndarray) -> np.ndarray:
-        mask = np.zeros(image.shape[:2], dtype=int)
-        for x, y in np.ndindex(image.shape[:2]):
-            mask[x, y] = cls.from_color(tuple(image[x, y]))
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        for class_ in cls:
+            color = class_.to_color()
+            value = class_.value
+
+            matches = np.all(image == color, axis=-1)
+            mask[matches] = value
 
         return mask
