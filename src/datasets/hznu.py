@@ -33,10 +33,10 @@ class Hznu(Dataset):
         target_path = Path(__file__).parent / ".data" / "hznu"
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-        response = requests.get(DOWNLOAD_URL, stream=True, timeout=60)
-        response.raise_for_status()
-
         if not target_path.is_dir():
+            response = requests.get(DOWNLOAD_URL, stream=True, timeout=60)
+            response.raise_for_status()
+
             buffer = _download_zip(response)
             _unzip_to_folder(buffer, target_path)
 
