@@ -6,6 +6,37 @@ from pathlib import Path
 import kagglehub
 from torch.utils.data import Dataset
 
+from ._util import _SegmentationClasses
+
+
+class IrregularFacadesClasses(_SegmentationClasses):
+    """Classes from the irregular facades dataset."""
+
+    BACKGROUND = 0
+    PLANT = 1
+    WALL = 2
+    WINDOW = 3
+    DOOR = 4
+    FENCE = 5
+
+    @classmethod
+    def from_color(cls, color: tuple[int, int, int]) -> IrregularFacadesClasses:
+        """Construct this class from the RGB value in the segmentation mask png."""
+        try:
+            return _CLASS_COLOR_MAPPING[color]
+        except KeyError:
+            raise ValueError(f"Unsupported color {color}") from None
+
+
+_CLASS_COLOR_MAPPING = {
+    (0, 0, 0): IrregularFacadesClasses.BACKGROUND,
+    (128, 0, 128): IrregularFacadesClasses.PLANT,
+    (128, 0, 0): IrregularFacadesClasses.WALL,
+    (0, 128, 0): IrregularFacadesClasses.WINDOW,
+    (128, 128, 0): IrregularFacadesClasses.DOOR,
+    (0, 0, 128): IrregularFacadesClasses.FENCE,
+}
+
 
 class IrregularFacades(Dataset):
     """The Irregular Facades dataset.
