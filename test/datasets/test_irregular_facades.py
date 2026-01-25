@@ -24,6 +24,7 @@ def test_paths_are_correct_format():
     for image_path, mask_path in dataset.paths:
         assert image_path.suffix == ".jpg"
         assert mask_path.suffix == ".png"
+        assert str(image_path).split(".jpg")[0] == str(mask_path).split(".png")[0]
 
 
 def test_classes_from_color_black():
@@ -69,3 +70,11 @@ def test_convert_image_to_mask():
     )
 
     assert (IrregularFacadesClasses.convert_image_to_mask(image) == mask).all()
+
+
+def test_get_item():
+    dataset = IrregularFacades.download()
+
+    image, mask = dataset[2]
+    assert image.shape == (1347, 1161, 3)
+    assert mask.shape == (1347, 1161)

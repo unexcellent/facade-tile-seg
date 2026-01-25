@@ -4,6 +4,8 @@ import shutil
 from pathlib import Path
 
 import kagglehub
+import numpy as np
+from PIL import Image
 from torch.utils.data import Dataset
 
 from ._util import _SegmentationClasses
@@ -55,8 +57,8 @@ class IrregularFacades(Dataset):
     def __init__(self, root_dir: Path) -> None:
         """Construct the dataset using the root path of the data directory."""
         samples_directory = root_dir / "samples" / "samples"
-        image_paths = list(samples_directory.glob("*.jpg"))
-        mask_paths = list(samples_directory.glob("*.png"))
+        image_paths = sorted(samples_directory.glob("*.jpg"))
+        mask_paths = sorted(samples_directory.glob("*.png"))
 
         self.paths = list(zip(image_paths, mask_paths, strict=True))
 
@@ -76,3 +78,13 @@ class IrregularFacades(Dataset):
 
     def __len__(self) -> int:
         return len(self.paths)
+
+    def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray]:
+        image_path, mask_path = self.paths[index]
+
+        image = np.array(Image.open(image_path))
+        mask = np.array(Image.open(mask_path).convert("RGB"))
+        return (
+            image,
+            IrregularFacadesClasses.convert_image_to_mask(mask),
+        )
