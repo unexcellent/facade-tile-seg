@@ -34,3 +34,8 @@ def test_classes_from_color_invalid():
     white = (256, 256, 256)
     with pytest.raises(ValueError):
         IrregularFacadesClasses.from_color(white)
+
+
+def test_classes_to_color_background():
+    black = (0, 0, 0)
+    assert IrregularFacadesClasses.BACKGROUND.to_color() == black

@@ -23,12 +23,16 @@ class IrregularFacadesClasses(_SegmentationClasses):
     def from_color(cls, color: tuple[int, int, int]) -> IrregularFacadesClasses:
         """Construct this class from the RGB value in the segmentation mask png."""
         try:
-            return _CLASS_COLOR_MAPPING[color]
+            return _COLOR_TO_CLASS_MAPPING[color]
         except KeyError:
             raise ValueError(f"Unsupported color {color}") from None
 
+    def to_color(self) -> tuple[int, int, int]:
+        """Convert this class to the RGB value in the segmentation mask png."""
+        return _CLASS_TO_COLOR_MAPPING[self]
 
-_CLASS_COLOR_MAPPING = {
+
+_COLOR_TO_CLASS_MAPPING = {
     (0, 0, 0): IrregularFacadesClasses.BACKGROUND,
     (128, 0, 128): IrregularFacadesClasses.PLANT,
     (128, 0, 0): IrregularFacadesClasses.WALL,
@@ -36,6 +40,8 @@ _CLASS_COLOR_MAPPING = {
     (128, 128, 0): IrregularFacadesClasses.DOOR,
     (0, 0, 128): IrregularFacadesClasses.FENCE,
 }
+
+_CLASS_TO_COLOR_MAPPING = {v: k for k, v in _COLOR_TO_CLASS_MAPPING.items()}
 
 
 class IrregularFacades(Dataset):

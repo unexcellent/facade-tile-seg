@@ -9,3 +9,7 @@ class _SegmentationClasses(IntEnum):
     @abstractmethod
     def from_color(cls, color: tuple[int, int, int]) -> _SegmentationClasses:
         raise NotImplementedError
+
+    @abstractmethod
+    def to_color(self) -> tuple[int, int, int]:
+        raise NotImplementedError
