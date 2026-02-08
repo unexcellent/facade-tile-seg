@@ -3,6 +3,7 @@ import numpy as np
 
 
 from src.datasets import IrregularFacades, IrregularFacadesClasses
+from src.datasets.merged import MergedClasses
 
 
 def test_dataset_length():
@@ -70,3 +71,7 @@ def test_convert_image_to_mask():
     )
 
     assert (IrregularFacadesClasses.convert_image_to_mask(image) == mask).all()
+
+
+def test_classes_to_merged():
+    assert IrregularFacadesClasses.WALL.to_merged() == MergedClasses.USABLE

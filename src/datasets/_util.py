@@ -9,19 +9,20 @@ import numpy as np
 
 class _SegmentationDataset(ABC):
     paths: list[tuple[Path, Path]]
+    classes: _SegmentationClasses
 
     def __init__(self, root_dir: Path) -> None:
         image_paths = sorted(root_dir.rglob("*.jpg"))
         mask_paths = [path.with_suffix(".png") for path in image_paths]
         self.paths = list(zip(image_paths, mask_paths, strict=True))
 
+    def __len__(self) -> int:
+        return self.paths.__len__()
+
     @classmethod
     @abstractmethod
     def download(cls) -> _SegmentationDataset:
         raise NotImplementedError
-
-    def __len__(self) -> int:
-        return self.paths.__len__()
 
 
 class _SegmentationClasses(IntEnum):
@@ -32,6 +33,10 @@ class _SegmentationClasses(IntEnum):
 
     @abstractmethod
     def to_color(self) -> tuple[int, int, int]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_merged(self):  # noqa: ANN202  can not import MergedClasses due to circular import
         raise NotImplementedError
 
     @classmethod

@@ -2,6 +2,7 @@ import numpy as np
 
 from src.datasets import Hznu
 from src.datasets.hznu import HznuClasses, _rasterize_mask
+from src.datasets.merged import MergedClasses
 
 
 def test_dataset_length():
@@ -24,6 +25,10 @@ def test_paths_are_correct_format():
         assert image_path.suffix == ".jpg"
         assert mask_path.suffix == ".png"
         assert str(image_path).split(".jpg")[0] == str(mask_path).split(".png")[0]
+
+
+def test_classes_to_merged():
+    assert HznuClasses.BUILDING.to_merged() == MergedClasses.USABLE
 
 
 def test_rasterize_mask_single_color():

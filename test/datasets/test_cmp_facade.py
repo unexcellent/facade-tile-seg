@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from src.datasets import CMPFacade, CMPFacadeClasses
+from src.datasets.merged import MergedClasses
 
 
 def test_dataset_length():
@@ -69,3 +70,7 @@ def test_convert_image_to_mask():
     )
 
     assert (CMPFacadeClasses.convert_image_to_mask(image) == mask).all()
+
+
+def test_classes_to_merged():
+    assert CMPFacadeClasses.FACADE.to_merged() == MergedClasses.USABLE

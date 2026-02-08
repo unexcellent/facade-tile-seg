@@ -5,6 +5,8 @@ from pathlib import Path
 
 import kagglehub
 
+from src.datasets.merged import MergedClasses
+
 from ._util import _SegmentationClasses, _SegmentationDataset
 
 
@@ -29,6 +31,16 @@ class IrregularFacadesClasses(_SegmentationClasses):
     def to_color(self) -> tuple[int, int, int]:
         """Convert this class to the RGB value in the segmentation mask png."""
         return _CLASS_TO_COLOR_MAPPING[self]
+
+    def to_merged(self) -> MergedClasses:
+        """Map this class to the class in the merged dataset."""
+        match self:
+            case self.BACKGROUND | self.FENCE:
+                return MergedClasses.BACKGROUND
+            case self.WALL:
+                return MergedClasses.USABLE
+            case _:
+                return MergedClasses.NOT_USABLE
 
 
 _COLOR_TO_CLASS_MAPPING = {
