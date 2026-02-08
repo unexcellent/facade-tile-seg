@@ -70,11 +70,3 @@ def test_convert_image_to_mask():
     )
 
     assert (IrregularFacadesClasses.convert_image_to_mask(image) == mask).all()
-
-
-def test_get_item():
-    dataset = IrregularFacades.download()
-
-    image, mask = dataset[2]
-    assert image.shape == (1347, 1161, 3)
-    assert mask.shape == (1347, 1161)

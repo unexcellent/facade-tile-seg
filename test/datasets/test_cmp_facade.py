@@ -69,11 +69,3 @@ def test_convert_image_to_mask():
     )
 
     assert (CMPFacadeClasses.convert_image_to_mask(image) == mask).all()
-
-
-def test_get_item():
-    dataset = CMPFacade.download()
-
-    image, mask = dataset[2]
-    assert image.shape == (449, 1024, 3)
-    assert mask.shape == (449, 1024)

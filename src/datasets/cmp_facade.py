@@ -4,11 +4,8 @@ import shutil
 from pathlib import Path
 
 import kagglehub
-import numpy as np
-from PIL import Image
-from torch.utils.data import Dataset
 
-from ._util import _SegmentationClasses
+from ._util import _SegmentationClasses, _SegmentationDataset
 
 
 class CMPFacadeClasses(_SegmentationClasses):
@@ -58,21 +55,11 @@ _COLOR_TO_CLASS_MAPPING = {
 _CLASS_TO_COLOR_MAPPING = {v: k for k, v in _COLOR_TO_CLASS_MAPPING.items()}
 
 
-class CMPFacade(Dataset):
+class CMPFacade(_SegmentationDataset):
     """The CMP Facades dataset.
 
     This class should be preferably be constructed using the `.download()` constructor.
     """
-
-    paths: list[tuple[Path, Path]]
-
-    def __init__(self, root_dir: Path) -> None:
-        """Construct the dataset using the root path of the data directory."""
-        samples_directory = root_dir / "base"
-        image_paths = sorted(samples_directory.glob("*.jpg"))
-        mask_paths = sorted(samples_directory.glob("*.png"))
-
-        self.paths = list(zip(image_paths, mask_paths, strict=True))
 
     @classmethod
     def download(cls) -> CMPFacade:
@@ -87,16 +74,3 @@ class CMPFacade(Dataset):
             shutil.copytree(str(download_path), str(target_path))
 
         return cls(target_path)
-
-    def __len__(self) -> int:
-        return len(self.paths)
-
-    def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray]:
-        image_path, mask_path = self.paths[index]
-
-        image = np.array(Image.open(image_path))
-        mask = np.array(Image.open(mask_path).convert("RGB"))
-        return (
-            image,
-            CMPFacadeClasses.convert_image_to_mask(mask),
-        )

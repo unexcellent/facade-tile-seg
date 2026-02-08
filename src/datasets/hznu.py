@@ -7,10 +7,9 @@ from pathlib import Path
 
 import requests
 from PIL import Image, ImageDraw
-from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from src.datasets._util import _SegmentationClasses
+from src.datasets._util import _SegmentationClasses, _SegmentationDataset
 
 DOWNLOAD_URL = "https://data.mendeley.com/public-files/datasets/k387xkyc5f/files/e5c4ddb5-2a79-480a-ad67-a688f1087c52/file_downloaded"
 
@@ -67,21 +66,11 @@ _NAME_TO_CLASS_MAPPING = {
 }
 
 
-class Hznu(Dataset):
+class Hznu(_SegmentationDataset):
     """The Hznu Facade dataset.
 
     This class should be preferably be constructed using the `.download()` constructor.
     """
-
-    paths: list[tuple[Path, Path]]
-
-    def __init__(self, root_dir: Path) -> None:
-        """Construct the dataset using the root path of the data directory."""
-        samples_directory = root_dir / "all-json_adjust_zhengmian"
-        image_paths = sorted(samples_directory.glob("*.jpg"))
-        annotation_paths = sorted(samples_directory.glob("*.json"))
-
-        self.paths = list(zip(image_paths, annotation_paths, strict=True))
 
     @classmethod
     def download(cls) -> Hznu:
@@ -100,9 +89,6 @@ class Hznu(Dataset):
         _rasterize_annotations(target_path)
 
         return cls(target_path)
-
-    def __len__(self) -> int:
-        return len(self.paths)
 
 
 def _download_zip(response: requests.Response) -> io.BytesIO:

@@ -22,8 +22,8 @@ def test_paths_are_correct_format():
 
     for image_path, mask_path in dataset.paths:
         assert image_path.suffix == ".jpg"
-        assert mask_path.suffix == ".json"
-        assert str(image_path).split(".jpg")[0] == str(mask_path).split(".json")[0]
+        assert mask_path.suffix == ".png"
+        assert str(image_path).split(".jpg")[0] == str(mask_path).split(".png")[0]
 
 
 def test_rasterize_mask_single_color():

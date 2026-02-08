@@ -1,9 +1,27 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from enum import IntEnum
+from pathlib import Path
 
 import numpy as np
+
+
+class _SegmentationDataset(ABC):
+    paths: list[tuple[Path, Path]]
+
+    def __init__(self, root_dir: Path) -> None:
+        image_paths = sorted(root_dir.rglob("*.jpg"))
+        mask_paths = [path.with_suffix(".png") for path in image_paths]
+        self.paths = list(zip(image_paths, mask_paths, strict=True))
+
+    @classmethod
+    @abstractmethod
+    def download(cls) -> _SegmentationDataset:
+        raise NotImplementedError
+
+    def __len__(self) -> int:
+        return self.paths.__len__()
 
 
 class _SegmentationClasses(IntEnum):
