@@ -40,7 +40,6 @@ class _SegmentationClasses(IntEnum):
         raise NotImplementedError
 
     @classmethod
-    @abstractmethod
     def convert_image_to_mask(cls, image: np.ndarray) -> np.ndarray:
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
         for class_ in cls:
@@ -51,3 +50,15 @@ class _SegmentationClasses(IntEnum):
             mask[matches] = value
 
         return mask
+
+    @classmethod
+    def convert_mask_to_merged(cls, mask: np.ndarray) -> np.ndarray:
+        converted_mask = np.zeros(mask.shape)
+        for class_ in cls:
+            original_value = class_.value
+            new_value = class_.to_merged().value
+
+            matches = mask == original_value
+            converted_mask[matches] = new_value
+
+        return converted_mask
