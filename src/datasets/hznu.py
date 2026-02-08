@@ -83,6 +83,8 @@ class Hznu(_SegmentationDataset):
     This class should be preferably be constructed using the `.download()` constructor.
     """
 
+    classes = HznuClasses
+
     @classmethod
     def download(cls) -> Hznu:
         """Download and construct the dataset."""

@@ -61,6 +61,8 @@ class IrregularFacades(_SegmentationDataset):
     This class should be preferably be constructed using the `.download()` constructor.
     """
 
+    classes = IrregularFacadesClasses
+
     @classmethod
     def download(cls) -> IrregularFacades:
         """Download and construct the dataset."""

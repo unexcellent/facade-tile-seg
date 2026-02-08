@@ -72,6 +72,8 @@ class CMPFacade(_SegmentationDataset):
     This class should be preferably be constructed using the `.download()` constructor.
     """
 
+    classes = CMPFacadeClasses
+
     @classmethod
     def download(cls) -> CMPFacade:
         """Download and construct the dataset."""

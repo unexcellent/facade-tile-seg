@@ -5,11 +5,14 @@ from enum import IntEnum
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
+
+TARGET_SIZE = (512, 512)
 
 
 class _SegmentationDataset(ABC):
     paths: list[tuple[Path, Path]]
-    classes: _SegmentationClasses
+    classes: type[_SegmentationClasses]
 
     def __init__(self, root_dir: Path) -> None:
         image_paths = sorted(root_dir.rglob("*.jpg"))
@@ -19,10 +22,32 @@ class _SegmentationDataset(ABC):
     def __len__(self) -> int:
         return self.paths.__len__()
 
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
+        image_path, mask_path = self.paths[idx]
+
+        image = Image.open(image_path)
+        image = _resize(image, self.classes(0).to_color())
+        image.convert("L")
+
+        mask = Image.open(mask_path)
+        mask = self.classes.convert_image_to_mask(np.array(mask))
+        mask = self.classes.convert_mask_to_merged(mask)
+
+        return np.array(image), mask
+
     @classmethod
     @abstractmethod
     def download(cls) -> _SegmentationDataset:
         raise NotImplementedError
+
+
+def _resize(image: Image.Image, background_color: tuple[int, int, int]) -> Image.Image:
+    image.thumbnail(TARGET_SIZE, Image.Resampling.LANCZOS)
+
+    background = Image.new("RGB", TARGET_SIZE, background_color)
+    offset = ((TARGET_SIZE[0] - image.width) // 2, (TARGET_SIZE[1] - image.height) // 2)
+    background.paste(image, offset)
+    return background
 
 
 class _SegmentationClasses(IntEnum):
