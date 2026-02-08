@@ -5,10 +5,65 @@ import zipfile
 from pathlib import Path
 
 import requests
+from PIL import Image, ImageDraw
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from ._util import _SegmentationClasses
+
 DOWNLOAD_URL = "https://data.mendeley.com/public-files/datasets/k387xkyc5f/files/e5c4ddb5-2a79-480a-ad67-a688f1087c52/file_downloaded"
+
+
+class HznuClasses(_SegmentationClasses):
+    """Classes from the HZNU dataset."""
+
+    BACKGROUND = 0
+    BUILDING = 1
+    CAR = 2
+    TREE = 3
+    WINDOW = 4
+    DOOR = 5
+
+    @classmethod
+    def from_color(cls, color: tuple[int, int, int]) -> HznuClasses:
+        """Construct this class from the RGB value in the segmentation mask png."""
+        try:
+            return _COLOR_TO_CLASS_MAPPING[color]
+        except KeyError:
+            raise ValueError(f"Unsupported color {color}") from None
+
+    @classmethod
+    def from_str(cls, name: str) -> HznuClasses:
+        """Construct this class from its name in the annotation files."""
+        try:
+            return _NAME_TO_CLASS_MAPPING[name]
+        except KeyError:
+            raise ValueError(f"Unsupported name '{name}'") from None
+
+    def to_color(self) -> tuple[int, int, int]:
+        """Convert this class to the RGB value in the segmentation mask png."""
+        return _CLASS_TO_COLOR_MAPPING[self]
+
+
+_COLOR_TO_CLASS_MAPPING = {
+    (0, 0, 0): HznuClasses.BACKGROUND,
+    (0, 0, 255): HznuClasses.BUILDING,
+    (255, 255, 255): HznuClasses.CAR,
+    (0, 255, 0): HznuClasses.TREE,
+    (255, 0, 0): HznuClasses.WINDOW,
+    (255, 255, 0): HznuClasses.DOOR,
+}
+
+_CLASS_TO_COLOR_MAPPING = {v: k for k, v in _COLOR_TO_CLASS_MAPPING.items()}
+
+_NAME_TO_CLASS_MAPPING = {
+    "sky": HznuClasses.BACKGROUND,
+    "building": HznuClasses.BUILDING,
+    "car": HznuClasses.CAR,
+    "tree": HznuClasses.TREE,
+    "window": HznuClasses.WINDOW,
+    "door": HznuClasses.DOOR,
+}
 
 
 class Hznu(Dataset):
@@ -22,8 +77,8 @@ class Hznu(Dataset):
     def __init__(self, root_dir: Path) -> None:
         """Construct the dataset using the root path of the data directory."""
         samples_directory = root_dir / "all-json_adjust_zhengmian"
-        image_paths = list(samples_directory.glob("*.jpg"))
-        annotation_paths = list(samples_directory.glob("*.json"))
+        image_paths = sorted(samples_directory.glob("*.jpg"))
+        annotation_paths = sorted(samples_directory.glob("*.json"))
 
         self.paths = list(zip(image_paths, annotation_paths, strict=True))
 
@@ -62,6 +117,18 @@ def _unzip_to_folder(buffer: io.BytesIO, target_path: Path) -> None:
     buffer.seek(0)
     with zipfile.ZipFile(buffer) as zip_buffer:
         zip_buffer.extractall(target_path)
+
+
+def _rasterize_mask(annotations: dict, width: int, height: int) -> Image:
+    mask = Image.new("RGB", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+
+    for shape in annotations["shapes"]:
+        class_ = HznuClasses.from_str(shape["label"])
+        points = [tuple(point) for point in shape["points"]]
+        draw.polygon(points, outline=class_.to_color(), fill=class_.to_color())
+
+    return mask
 
 
 if __name__ == "__main__":
