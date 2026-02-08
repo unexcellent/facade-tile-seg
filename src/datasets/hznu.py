@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from PIL import Image, ImageDraw
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from ._util import _SegmentationClasses
+from src.datasets._util import _SegmentationClasses
 
 DOWNLOAD_URL = "https://data.mendeley.com/public-files/datasets/k387xkyc5f/files/e5c4ddb5-2a79-480a-ad67-a688f1087c52/file_downloaded"
 
@@ -88,12 +89,15 @@ class Hznu(Dataset):
         target_path = Path(__file__).parent / ".data" / "hznu"
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if not target_path.is_dir():
-            response = requests.get(DOWNLOAD_URL, stream=True, timeout=60)
-            response.raise_for_status()
+        if target_path.is_dir():
+            return cls(target_path)
 
-            buffer = _download_zip(response)
-            _unzip_to_folder(buffer, target_path)
+        response = requests.get(DOWNLOAD_URL, stream=True, timeout=60)
+        response.raise_for_status()
+
+        buffer = _download_zip(response)
+        _unzip_to_folder(buffer, target_path)
+        _rasterize_annotations(target_path)
 
         return cls(target_path)
 
@@ -119,13 +123,32 @@ def _unzip_to_folder(buffer: io.BytesIO, target_path: Path) -> None:
         zip_buffer.extractall(target_path)
 
 
-def _rasterize_mask(annotations: dict, width: int, height: int) -> Image:
+def _rasterize_annotations(root_dir: Path) -> None:
+    samples_directory = root_dir / "all-json_adjust_zhengmian"
+    image_paths = sorted(samples_directory.glob("*.jpg"))
+    pbar = tqdm(image_paths, desc="Rasterizing Hznu")
+    for image_path in pbar:
+        annotation_path = image_path.with_suffix(".json")
+        with annotation_path.open() as annotation_file:
+            annotations = json.load(annotation_file)
+
+        width, height = Image.open(image_path).size
+        mask_path = image_path.with_suffix(".png")
+        _rasterize_mask(annotations, width, height).save(mask_path)
+
+
+def _rasterize_mask(annotations: dict, width: int, height: int) -> Image.Image:
+    min_viable_point_amount = 2
     mask = Image.new("RGB", (width, height), 0)
     draw = ImageDraw.Draw(mask)
 
     for shape in annotations["shapes"]:
         class_ = HznuClasses.from_str(shape["label"])
+
         points = [tuple(point) for point in shape["points"]]
+        if len(points) < min_viable_point_amount:
+            continue
+
         draw.polygon(points, outline=class_.to_color(), fill=class_.to_color())
 
     return mask
