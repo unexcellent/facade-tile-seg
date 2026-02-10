@@ -1,32 +1,48 @@
 from __future__ import annotations
 
-from src.datasets._util import _SegmentationClasses
+from hashlib import sha256
+from pathlib import Path
+
+from lightning import LightningDataModule
+from PIL import Image
+from tqdm import tqdm
+
+from src.datasets.cmp_facade import CMPFacade
+from src.datasets.hznu import Hznu
+from src.datasets.irregular_facades import IrregularFacades
+from src.datasets.merged_classes import MergedClasses
 
 
-class MergedClasses(_SegmentationClasses):
-    """Segmentation classes used in the final dataset."""
+class MergedDataset(LightningDataModule):
+    """The final dataset merged from the sub-datasets."""
 
-    BACKGROUND = 0
-    USABLE = 1
-    NOT_USABLE = 2
+    def __init__(self, root_dir: Path = Path(__file__).parent / ".data" / "merged") -> None:
+        self.root_dir = root_dir
 
-    @classmethod
-    def from_color(cls, color: tuple[int, int, int]) -> MergedClasses:
-        """Construct this class from the RGB value in the segmentation mask png."""
-        try:
-            return _COLOR_TO_CLASS_MAPPING[color]
-        except KeyError:
-            raise ValueError(f"Unsupported color {color}") from None
+    def prepare_data(self) -> None:
+        """Download and process the data."""
+        if self.root_dir.is_dir():
+            return
 
-    def to_color(self) -> tuple[int, int, int]:
-        """Convert this class to the RGB value in the segmentation mask png."""
-        return _CLASS_TO_COLOR_MAPPING[self]
+        self.root_dir.mkdir(parents=True)
+        datasets = [
+            CMPFacade.download(),
+            Hznu.download(),
+            IrregularFacades.download(),
+        ]
+        pbar = tqdm(datasets, desc="Processing Datasets")
+        for dataset in pbar:
+            for i in range(len(dataset)):
+                image, mask = dataset[i]
+
+                image = Image.fromarray(image)
+                mask = Image.fromarray(MergedClasses.convert_mask_to_image(mask))
+
+                image_path = self.root_dir / f"{sha256(image.tobytes()).hexdigest()[:8]}.jpg"
+                mask_path = image_path.with_suffix(".png")
+                image.save(image_path)
+                mask.save(mask_path)
 
 
-_COLOR_TO_CLASS_MAPPING = {
-    (0, 0, 0): MergedClasses.BACKGROUND,
-    (0, 255, 0): MergedClasses.USABLE,
-    (255, 0, 0): MergedClasses.NOT_USABLE,
-}
-
-_CLASS_TO_COLOR_MAPPING = {v: k for k, v in _COLOR_TO_CLASS_MAPPING.items()}
+if __name__ == "__main__":
+    MergedDataset().prepare_data()

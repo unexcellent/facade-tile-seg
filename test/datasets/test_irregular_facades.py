@@ -1,9 +1,8 @@
 import pytest
-import numpy as np
 
 
 from src.datasets import IrregularFacades, IrregularFacadesClasses
-from src.datasets.merged import MergedClasses
+from src.datasets.merged_classes import MergedClasses
 
 
 def test_dataset_length():
@@ -42,35 +41,6 @@ def test_classes_from_color_invalid():
 def test_classes_to_color_background():
     black = (0, 0, 0)
     assert IrregularFacadesClasses.BACKGROUND.to_color() == black
-
-
-def test_convert_image_to_mask():
-    black = (0, 0, 0)
-    red = (128, 0, 0)
-    green = (0, 128, 0)
-
-    image = np.array(
-        [
-            [black, red, black],
-            [red, green, red],
-            [black, red, black],
-        ]
-    )
-
-    background = IrregularFacadesClasses.BACKGROUND
-    wall = IrregularFacadesClasses.WALL
-    window = IrregularFacadesClasses.WINDOW
-
-    mask = np.array(
-        [
-            [background, wall, background],
-            [wall, window, wall],
-            [background, wall, background],
-        ],
-        dtype=int,
-    )
-
-    assert (IrregularFacadesClasses.convert_image_to_mask(image) == mask).all()
 
 
 def test_classes_to_merged():

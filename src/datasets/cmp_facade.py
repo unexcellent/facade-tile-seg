@@ -6,7 +6,7 @@ from pathlib import Path
 import kagglehub
 
 from src.datasets._util import _SegmentationClasses, _SegmentationDataset
-from src.datasets.merged import MergedClasses
+from src.datasets.merged_classes import MergedClasses
 
 
 class CMPFacadeClasses(_SegmentationClasses):
@@ -49,18 +49,18 @@ class CMPFacadeClasses(_SegmentationClasses):
 
 
 _COLOR_TO_CLASS_MAPPING = {
-    (0, 0, 163): CMPFacadeClasses.BACKGROUND,
-    (0, 0, 245): CMPFacadeClasses.FACADE,
-    (34, 84, 245): CMPFacadeClasses.WINDOW,
-    (76, 167, 248): CMPFacadeClasses.DOOR,
-    (236, 98, 42): CMPFacadeClasses.CORNICE,
-    (0, 0, 0): CMPFacadeClasses.SILL,
-    (189, 253, 112): CMPFacadeClasses.BALCONY,
-    (255, 255, 84): CMPFacadeClasses.BLIND,
-    (243, 174, 61): CMPFacadeClasses.DECO,
-    (117, 251, 253): CMPFacadeClasses.MOLDING,
-    (234, 51, 35): CMPFacadeClasses.PILLAR,
-    (156, 31, 20): CMPFacadeClasses.SHOP,
+    (0, 0, 170): CMPFacadeClasses.BACKGROUND,
+    (0, 0, 255): CMPFacadeClasses.FACADE,
+    (255, 255, 0): CMPFacadeClasses.BLIND,
+    (170, 255, 85): CMPFacadeClasses.BALCONY,
+    (0, 85, 255): CMPFacadeClasses.WINDOW,
+    (85, 255, 170): CMPFacadeClasses.SILL,
+    (255, 170, 0): CMPFacadeClasses.DECO,
+    (255, 85, 0): CMPFacadeClasses.CORNICE,
+    (255, 0, 0): CMPFacadeClasses.PILLAR,
+    (0, 170, 255): CMPFacadeClasses.DOOR,
+    (170, 0, 0): CMPFacadeClasses.SHOP,
+    (0, 255, 255): CMPFacadeClasses.MOLDING,
 }
 
 _CLASS_TO_COLOR_MAPPING = {v: k for k, v in _COLOR_TO_CLASS_MAPPING.items()}

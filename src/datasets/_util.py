@@ -7,47 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-TARGET_SIZE = (512, 512)
-
-
-class _SegmentationDataset(ABC):
-    paths: list[tuple[Path, Path]]
-    classes: type[_SegmentationClasses]
-
-    def __init__(self, root_dir: Path) -> None:
-        image_paths = sorted(root_dir.rglob("*.jpg"))
-        mask_paths = [path.with_suffix(".png") for path in image_paths]
-        self.paths = list(zip(image_paths, mask_paths, strict=True))
-
-    def __len__(self) -> int:
-        return self.paths.__len__()
-
-    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
-        image_path, mask_path = self.paths[idx]
-
-        image = Image.open(image_path)
-        image = _resize(image, self.classes(0).to_color())
-        image.convert("L")
-
-        mask = Image.open(mask_path)
-        mask = self.classes.convert_image_to_mask(np.array(mask))
-        mask = self.classes.convert_mask_to_merged(mask)
-
-        return np.array(image), mask
-
-    @classmethod
-    @abstractmethod
-    def download(cls) -> _SegmentationDataset:
-        raise NotImplementedError
-
-
-def _resize(image: Image.Image, background_color: tuple[int, int, int]) -> Image.Image:
-    image.thumbnail(TARGET_SIZE, Image.Resampling.LANCZOS)
-
-    background = Image.new("RGB", TARGET_SIZE, background_color)
-    offset = ((TARGET_SIZE[0] - image.width) // 2, (TARGET_SIZE[1] - image.height) // 2)
-    background.paste(image, offset)
-    return background
+TARGET_SIZE = (572, 572)
 
 
 class _SegmentationClasses(IntEnum):
@@ -66,7 +26,7 @@ class _SegmentationClasses(IntEnum):
 
     @classmethod
     def convert_image_to_mask(cls, image: np.ndarray) -> np.ndarray:
-        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        mask = np.ones(image.shape[:2], dtype=np.int8) * -1
         for class_ in cls:
             color = class_.to_color()
             value = class_.value
@@ -74,7 +34,21 @@ class _SegmentationClasses(IntEnum):
             matches = np.all(image == color, axis=-1)
             mask[matches] = value
 
+        if (mask < 0).any():
+            unexpected_colors = np.unique(image[mask < 0], axis=0)
+            raise ValueError(f"Unexpected color found: {unexpected_colors.tolist()}")
+
         return mask
+
+    @classmethod
+    def convert_mask_to_image(cls, mask: np.ndarray) -> np.ndarray:
+        image = np.zeros((*mask.shape, 3), dtype=np.uint8)
+        for class_ in cls:
+            color = class_.to_color()
+            matches = mask == class_.value
+            image[matches] = color
+
+        return image
 
     @classmethod
     def convert_mask_to_merged(cls, mask: np.ndarray) -> np.ndarray:
@@ -87,3 +61,44 @@ class _SegmentationClasses(IntEnum):
             converted_mask[matches] = new_value
 
         return converted_mask
+
+
+class _SegmentationDataset(ABC):
+    paths: list[tuple[Path, Path]]
+    classes: type[_SegmentationClasses]
+
+    def __init__(self, root_dir: Path) -> None:
+        image_paths = sorted(root_dir.rglob("*.jpg"))
+        mask_paths = [path.with_suffix(".png") for path in image_paths]
+        self.paths = list(zip(image_paths, mask_paths, strict=True))
+
+    def __len__(self) -> int:
+        return self.paths.__len__()
+
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
+        image_path, mask_path = self.paths[idx]
+
+        image = Image.open(image_path)
+        background = self.classes(0)
+        image = _resize(image, background.to_color()).convert("L")
+
+        mask = Image.open(mask_path).convert("RGB")
+        mask = _resize(mask, background.to_color())
+        mask = self.classes.convert_image_to_mask(np.array(mask))
+        mask = self.classes.convert_mask_to_merged(mask)
+
+        return np.array(image), mask
+
+    @classmethod
+    @abstractmethod
+    def download(cls) -> _SegmentationDataset:
+        raise NotImplementedError
+
+
+def _resize(image: Image.Image, background_color: tuple[int, int, int]) -> Image.Image:
+    image.thumbnail(TARGET_SIZE, Image.Resampling.NEAREST)
+
+    background = Image.new("RGB", TARGET_SIZE, background_color)
+    offset = ((TARGET_SIZE[0] - image.width) // 2, (TARGET_SIZE[1] - image.height) // 2)
+    background.paste(image, offset)
+    return background

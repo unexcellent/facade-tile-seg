@@ -5,7 +5,7 @@ from pathlib import Path
 
 import kagglehub
 
-from src.datasets.merged import MergedClasses
+from src.datasets.merged_classes import MergedClasses
 
 from ._util import _SegmentationClasses, _SegmentationDataset
 
@@ -35,7 +35,7 @@ class IrregularFacadesClasses(_SegmentationClasses):
     def to_merged(self) -> MergedClasses:
         """Map this class to the class in the merged dataset."""
         match self:
-            case self.BACKGROUND | self.FENCE:
+            case self.BACKGROUND | self.PLANT:
                 return MergedClasses.BACKGROUND
             case self.WALL:
                 return MergedClasses.USABLE

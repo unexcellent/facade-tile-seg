@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 
 from src.datasets._util import _SegmentationClasses, _SegmentationDataset
-from src.datasets.merged import MergedClasses
+from src.datasets.merged_classes import MergedClasses
 
 DOWNLOAD_URL = "https://data.mendeley.com/public-files/datasets/k387xkyc5f/files/e5c4ddb5-2a79-480a-ad67-a688f1087c52/file_downloaded"
 

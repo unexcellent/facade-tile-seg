@@ -2,7 +2,7 @@ import numpy as np
 
 from src.datasets import Hznu
 from src.datasets.hznu import HznuClasses, _rasterize_mask
-from src.datasets.merged import MergedClasses
+from src.datasets.merged_classes import MergedClasses
 
 
 def test_dataset_length():
