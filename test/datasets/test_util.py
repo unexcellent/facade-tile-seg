@@ -78,3 +78,32 @@ def test_convert_mask_to_image():
     )
 
     assert (CMPFacadeClasses.convert_mask_to_image(mask) == image).all()
+
+
+def test_convert_mask_to_output():
+    background = MergedClasses.BACKGROUND
+    usable = MergedClasses.USABLE
+    not_usable = MergedClasses.NOT_USABLE
+
+    mask = np.array(
+        [
+            [background, usable, background],
+            [usable, not_usable, usable],
+            [background, usable, background],
+        ],
+        dtype=int,
+    )
+
+    background_seglayer = (1, 0, 0)
+    usable_seglayer = (0, 1, 0)
+    not_usable_seglayer = (0, 0, 1)
+
+    output = np.array(
+        [
+            [background_seglayer, usable_seglayer, background_seglayer],
+            [usable_seglayer, not_usable_seglayer, usable_seglayer],
+            [background_seglayer, usable_seglayer, background_seglayer],
+        ]
+    )
+
+    assert (MergedClasses.convert_mask_to_output(mask) == output).all()

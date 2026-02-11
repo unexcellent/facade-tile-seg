@@ -62,6 +62,18 @@ class _SegmentationClasses(IntEnum):
 
         return converted_mask
 
+    @classmethod
+    def convert_mask_to_output(cls, mask: np.ndarray) -> np.ndarray:
+        output = np.zeros((*mask.shape, len(cls)), dtype=np.uint8)
+        for class_ in cls:
+            output_array = np.zeros(len(cls), dtype=np.uint8)
+            output_array[class_.value] = 1
+
+            matches = mask == class_.value
+            output[matches] = output_array
+
+        return output
+
 
 class _SegmentationDataset(ABC):
     paths: list[tuple[Path, Path]]
