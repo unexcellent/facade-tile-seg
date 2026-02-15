@@ -23,18 +23,18 @@ class Subset(Dataset):
         self.paths = [all_paths[i] for i in indices]
 
     def __len__(self) -> int:
-        return self.paths.__len__()
+        return len(self.paths)
 
     def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray]:
         image_path, mask_path = self.paths[index]
 
-        image = np.array(Image.open(image_path))
+        image = np.array(Image.open(image_path), dtype=np.float32) / 255.0
+        image = image[np.newaxis, ...]
 
         mask = np.array(Image.open(mask_path))
         mask = MergedClasses.convert_image_to_mask(mask)
-        mask = MergedClasses.convert_mask_to_output(mask)
 
-        return image, mask
+        return image, mask.astype(np.int64)
 
 
 class MergedDataset(LightningDataModule):
@@ -43,6 +43,7 @@ class MergedDataset(LightningDataModule):
     def __init__(
         self, root_dir: Path = Path(__file__).parent / ".data" / "merged", batch_size: int = 32
     ) -> None:
+        super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size
 
@@ -62,20 +63,21 @@ class MergedDataset(LightningDataModule):
             for i in range(len(dataset)):
                 image, mask = dataset[i]
 
-                image = Image.fromarray(image)
-                mask = Image.fromarray(MergedClasses.convert_mask_to_image(mask))
+                image_pil = Image.fromarray(image)
+                mask_pil = Image.fromarray(MergedClasses.convert_mask_to_image(mask))
 
-                image_path = self.root_dir / f"{sha256(image.tobytes()).hexdigest()[:8]}.jpg"
+                image_hash = sha256(image_pil.tobytes()).hexdigest()[:8]
+                image_path = self.root_dir / f"{image_hash}.jpg"
                 mask_path = image_path.with_suffix(".png")
-                image.save(image_path)
-                mask.save(mask_path)
 
-    def setup(self, _: str = "") -> None:
+                image_pil.save(image_path)
+                mask_pil.save(mask_path)
+
+    def setup(self, stage: str | None = None) -> None:  # noqa: ARG002 stage is a kwarg in the parent method so it can not be renamed
         """Load the paths and do the dataset split."""
         image_paths = sorted(self.root_dir.rglob("*.jpg"))
         mask_paths = [path.with_suffix(".png") for path in image_paths]
         paths = list(zip(image_paths, mask_paths, strict=True))
-        self.data = Subset(paths, list(range(len(paths))))
 
         train_len = int(0.6 * len(paths))
         val_len = int(0.2 * len(paths))
@@ -91,9 +93,11 @@ class MergedDataset(LightningDataModule):
         self.val_dataset = Subset(paths, val_indices)
         self.test_dataset = Subset(paths, test_indices)
 
+        self.data = Subset(paths, list(range(len(paths))))
+
     def train_dataloader(self) -> DataLoader:
         """Return the training dataloader."""
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self) -> DataLoader:
         """Return the validation dataloader."""
@@ -104,7 +108,7 @@ class MergedDataset(LightningDataModule):
         return DataLoader(self.test_dataset, batch_size=self.batch_size)
 
     def __len__(self) -> int:
-        return self.data.__len__()
+        return len(self.data)
 
 
 if __name__ == "__main__":

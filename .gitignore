@@ -210,3 +210,4 @@ __marimo__/
 sandbox/
 .data/
 *.pdf
+lightning_logs/
