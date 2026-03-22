@@ -43,7 +43,7 @@ class Subset(Dataset):
         mask = np.array(Image.open(mask_path))
         mask = MergedClasses.convert_image_to_mask(mask)
         if self.augment:
-            mask = self.image_transforms(mask)
+            mask = self.mask_transforms(mask)
 
         return image, mask.astype(np.int64)
 
