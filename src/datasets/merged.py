@@ -8,6 +8,7 @@ import torch
 from lightning import LightningDataModule
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, random_split
+from torchvision.transforms.v2 import ColorJitter, Compose, RandomVerticalFlip
 from tqdm import tqdm
 
 from src.datasets.cmp_facade import CMPFacade
@@ -19,8 +20,16 @@ from src.datasets.merged_classes import MergedClasses
 class Subset(Dataset):
     """A simple subset of the merged dataset."""
 
-    def __init__(self, all_paths: list[tuple[Path, Path]], indices: list[int]) -> None:
+    def __init__(
+        self,
+        all_paths: list[tuple[Path, Path]],
+        indices: list[int],
+        augment: bool = False,
+    ) -> None:
         self.paths = [all_paths[i] for i in indices]
+        self.augment = augment
+        self.mask_transforms = Compose([RandomVerticalFlip()])
+        self.image_transforms = Compose([RandomVerticalFlip(), ColorJitter()])
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -30,9 +39,13 @@ class Subset(Dataset):
 
         image = np.array(Image.open(image_path), dtype=np.float32) / 255.0
         image = image[np.newaxis, ...]
+        if self.augment:
+            image = self.image_transforms(image)
 
         mask = np.array(Image.open(mask_path))
         mask = MergedClasses.convert_image_to_mask(mask)
+        if self.augment:
+            mask = self.image_transforms(mask)
 
         return image, mask.astype(np.int64)
 
@@ -93,7 +106,7 @@ class MergedDataset(LightningDataModule):
             generator=torch.Generator().manual_seed(0),
         )
 
-        self.train_dataset = Subset(paths, train_indices)
+        self.train_dataset = Subset(paths, train_indices, augment=True)
         self.val_dataset = Subset(paths, val_indices)
         self.test_dataset = Subset(paths, test_indices)
 
