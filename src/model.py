@@ -8,12 +8,12 @@ from src.datasets.merged_classes import MergedClasses
 
 
 class FacadeSegmenter(LightningModule):
-    """A model for segmenting building facades."""
+    """A model used to segment building facades."""
 
     model: nn.Module
     loss_fn: nn.Module
     learning_rate: float
-    iou_metric: MulticlassJaccardIndex
+    test_iou_metric: MulticlassJaccardIndex
 
     def __init__(
         self,
@@ -32,15 +32,15 @@ class FacadeSegmenter(LightningModule):
         )
         self.loss_fn = nn.CrossEntropyLoss()
 
-        self.iou_metric = MulticlassJaccardIndex(num_classes=len(MergedClasses))
+        self.test_iou_metric = MulticlassJaccardIndex(num_classes=len(MergedClasses))
         self.validation_step_outputs: list[dict[str, Tensor]] = []
 
     def forward(self, x: Tensor) -> Tensor:
-        """Predict using the model."""
+        """Perform forward propagation on the model."""
         return self.model(x)
 
     def training_step(self, batch: tuple[Tensor, Tensor], _: int = 0) -> Tensor:
-        """Train the model with a single batch."""
+        """Compute and return the training loss and some additional metrics."""
         x, y = batch
         logits = self(x)
         loss = self.loss_fn(logits, y)
@@ -49,46 +49,39 @@ class FacadeSegmenter(LightningModule):
         return loss
 
     def validation_step(self, batch: tuple[Tensor, Tensor], _: int = 0) -> dict[str, Tensor]:
-        """Validate the model with a single batch."""
+        """Operates on a single batch of data from the validation set."""
         x, y = batch
         logits = self(x)
         loss = self.loss_fn(logits, y)
-
-        preds = torch.argmax(logits, dim=1)
-        self.iou_metric.update(preds, y)
 
         output = {"val_loss": loss}
         self.validation_step_outputs.append(output)
         return output
 
     def on_validation_epoch_end(self) -> None:
-        """Log the metrics."""
+        """Log the validation loss."""
         avg_loss = torch.stack([x["val_loss"] for x in self.validation_step_outputs]).mean()
-        miou = self.iou_metric.compute()
 
         self.log("val_loss", avg_loss, prog_bar=True)
-        self.log("val_miou", miou, prog_bar=True)
-
-        self.iou_metric.reset()
         self.validation_step_outputs.clear()
 
     def test_step(self, batch: tuple[Tensor, Tensor], _: int = 0) -> None:  # noqa: PT019
-        """Test the model with a single batch."""
+        """Operates on a single batch of data from the test set."""
         x, y = batch
         logits = self(x)
         loss = self.loss_fn(logits, y)
 
         preds = torch.argmax(logits, dim=1)
-        self.iou_metric.update(preds, y)
+        self.test_iou_metric.update(preds, y)
 
         self.log("test_loss", loss, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:
-        """Log the metrics."""
-        miou = self.iou_metric.compute()
+        """Log the test metrics."""
+        miou = self.test_iou_metric.compute()
         self.log("test_miou", miou)
-        self.iou_metric.reset()
+        self.test_iou_metric.reset()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        """Configure the optimizer."""
+        """Return the optimizer used."""
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)

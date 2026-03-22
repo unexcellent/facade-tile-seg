@@ -41,11 +41,15 @@ class MergedDataset(LightningDataModule):
     """The final dataset merged from the sub-datasets."""
 
     def __init__(
-        self, root_dir: Path = Path(__file__).parent / ".data" / "merged", batch_size: int = 32
+        self,
+        root_dir: Path = Path(__file__).parent / ".data" / "merged",
+        batch_size: int = 32,
+        num_workers: int = 7,
     ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size
+        self.num_workers = num_workers
 
     def prepare_data(self) -> None:
         """Download and process the data."""
@@ -97,15 +101,22 @@ class MergedDataset(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Return the training dataloader."""
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+        )
 
     def val_dataloader(self) -> DataLoader:
         """Return the validation dataloader."""
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self) -> DataLoader:
         """Return the testing dataloader."""
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return DataLoader(
+            self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def __len__(self) -> int:
         return len(self.data)
