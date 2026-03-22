@@ -8,7 +8,7 @@ import torch
 from lightning import LightningDataModule
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, random_split
-from torchvision.transforms.v2 import ColorJitter, Compose, RandomVerticalFlip
+from torchvision.transforms.v2 import ColorJitter, Compose
 from tqdm import tqdm
 
 from src.datasets._util import _SegmentationDataset
@@ -26,8 +26,7 @@ class Subset(Dataset):
     ) -> None:
         self.paths = [all_paths[i] for i in indices]
         self.augment = augment
-        self.mask_transforms = Compose([RandomVerticalFlip()])
-        self.image_transforms = Compose([RandomVerticalFlip(), ColorJitter()])
+        self.image_transforms = Compose([ColorJitter()])
 
     def __len__(self) -> int:
         return len(self.paths)
@@ -42,8 +41,6 @@ class Subset(Dataset):
 
         mask = np.array(Image.open(mask_path))
         mask = MergedClasses.convert_image_to_mask(mask)
-        if self.augment:
-            mask = self.mask_transforms(mask)
 
         return image, mask.astype(np.int64)
 

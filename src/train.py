@@ -29,13 +29,13 @@ class TrainingConfig:
 
 def train(config: TrainingConfig) -> tuple[LightningModule, float]:
     """Train a model based on a TrainingConfig and return its mIoU."""
-    trainer = Trainer(max_epochs=config.max_epochs, deterministic=True)
+    trainer = Trainer(max_epochs=config.max_epochs, precision="16-mixed")
     model = FacadeSegmenter()
     dataset = MergedDataset(config.datasets, config.augment)
 
     trainer.fit(model, dataset)
     performance = trainer.test(model, dataset)[-1]
-    return model, performance["test_iou_metric"]
+    return model, performance["test_miou"]
 
 
 if __name__ == "__main__":
