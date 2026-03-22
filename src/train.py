@@ -1,62 +1,42 @@
-from pathlib import Path
+from dataclasses import dataclass, field
 
-import numpy as np
-import torch
-from lightning import Trainer
-from PIL import Image
-from torch.utils.data import DataLoader
+from lightning import LightningModule, Trainer
 
+from src.datasets._util import _SegmentationDataset
+from src.datasets.cmp_facade import CMPFacade
+from src.datasets.hznu import Hznu
+from src.datasets.irregular_facades import IrregularFacades
 from src.datasets.merged import MergedDataset
-from src.datasets.merged_classes import MergedClasses
 from src.model import FacadeSegmenter
 
 
-def overlay_mask(image: np.ndarray, mask: np.ndarray, alpha: float = 0.3) -> Image.Image:
-    """Overlay the segmentation mask visually over an image."""
-    image_uint8 = (image[0] * 255).astype(np.uint8)
-    image_rgb = np.stack((image_uint8,) * 3, axis=-1)
-    base = Image.fromarray(image_rgb).convert("RGBA")
-
-    mask_rgb = MergedClasses.convert_mask_to_image(mask)
-    overlay = Image.fromarray(mask_rgb).convert("RGBA")
-
-    return Image.blend(base, overlay, alpha).convert("RGB")
+def _all_datasets() -> list[_SegmentationDataset]:
+    return [
+        CMPFacade.download(),
+        Hznu.download(),
+        IrregularFacades.download(),
+    ]
 
 
-def save_predictions(model: FacadeSegmenter, dataset: MergedDataset, output_dir: Path) -> None:
-    """Store the model predictions of a dataset to a directory."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    model.eval()
+@dataclass
+class TrainingConfig:
+    """Configuration settings for model training."""
 
-    dataloader = DataLoader(
-        dataset.train_dataset,
-        batch_size=dataset.batch_size,
-        shuffle=False,
-        num_workers=dataset.num_workers,
-    )
+    max_epochs: int = 4
+    augment: bool = True
+    datasets: list[_SegmentationDataset] = field(default_factory=_all_datasets)
 
-    idx = 0
-    with torch.no_grad():
-        for x, _ in dataloader:
-            logits = model(x)
-            predictions = torch.argmax(logits, dim=1).cpu().numpy()
-            images = x.cpu().numpy()
 
-            for i in range(len(images)):
-                image_with_mask = overlay_mask(images[i], predictions[i])
+def train(config: TrainingConfig) -> tuple[LightningModule, float]:
+    """Train a model based on a TrainingConfig and return its mIoU."""
+    trainer = Trainer(max_epochs=config.max_epochs, deterministic=True)
+    model = FacadeSegmenter()
+    dataset = MergedDataset(config.datasets, config.augment)
 
-                original_filename = dataset.train_dataset.paths[idx][0].name
-                image_with_mask.save(output_dir / original_filename)
-                idx += 1
+    trainer.fit(model, dataset)
+    performance = trainer.test(model, dataset)[-1]
+    return model, performance["test_iou_metric"]
 
 
 if __name__ == "__main__":
-    trainer = Trainer(max_epochs=1, deterministic=True)
-    model = FacadeSegmenter()
-    dataset = MergedDataset()
-
-    trainer.fit(model, dataset)
-    trainer.test(model, dataset)
-
-    output_path = Path(__file__).parent / "datasets" / ".data" / "predictions"
-    save_predictions(model, dataset, output_path)
+    train(TrainingConfig())
