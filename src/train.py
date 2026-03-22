@@ -22,7 +22,7 @@ def _all_datasets() -> list[_SegmentationDataset]:
 class TrainingConfig:
     """Configuration settings for model training."""
 
-    max_epochs: int = 4
+    max_epochs: int = 8
     augment: bool = True
     datasets: list[_SegmentationDataset] = field(default_factory=_all_datasets)
 

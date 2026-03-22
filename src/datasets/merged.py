@@ -3,6 +3,7 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 
+import numpy as np
 import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -37,13 +38,7 @@ class Subset(Dataset):
         if self.augment:
             image = self.image_transforms(image)
 
-        mask_rgb = read_image(str(mask_path), mode=ImageReadMode.RGB)
-        mask = torch.full((mask_rgb.shape[1], mask_rgb.shape[2]), -1, dtype=torch.long)
-
-        for class_ in MergedClasses:
-            color_tensor = torch.tensor(class_.to_color(), dtype=torch.uint8).view(3, 1, 1)
-            matches = (mask_rgb == color_tensor).all(dim=0)
-            mask[matches] = class_.value
+        mask = torch.from_numpy(np.load(mask_path)).long()
 
         return image, mask
 
@@ -83,15 +78,17 @@ class MergedDataset(LightningDataModule):
 
                 image_hash = sha256(image.tobytes()).hexdigest()[:8]
                 image_path = self.root_dir / f"{image_hash}.jpg"
-                mask_path = image_path.with_suffix(".png")
+                mask_png_path = image_path.with_suffix(".png")
+                mask_npy_path = image_path.with_suffix(".npy")
 
                 write_jpeg(image_tensor, str(image_path))
-                write_png(mask_tensor, str(mask_path))
+                write_png(mask_tensor, str(mask_png_path))
+                np.save(mask_npy_path, mask)
 
     def setup(self, stage: str | None = None) -> None:  # noqa: ARG002
         """Load the paths and do the dataset split."""
         image_paths = sorted(self.root_dir.rglob("*.jpg"))
-        mask_paths = [path.with_suffix(".png") for path in image_paths]
+        mask_paths = [path.with_suffix(".npy") for path in image_paths]
         paths = list(zip(image_paths, mask_paths, strict=True))
 
         train_len = int(0.6 * len(paths))
