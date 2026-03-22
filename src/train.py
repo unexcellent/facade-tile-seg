@@ -39,14 +39,14 @@ def save_predictions(model: FacadeSegmenter, dataset: MergedDataset, output_dir:
     with torch.no_grad():
         for x, _ in dataloader:
             logits = model(x)
-            preds = torch.argmax(logits, dim=1).cpu().numpy()
+            predictions = torch.argmax(logits, dim=1).cpu().numpy()
             images = x.cpu().numpy()
 
             for i in range(len(images)):
-                blended = overlay_mask(images[i], preds[i], alpha=0.3)
+                image_with_mask = overlay_mask(images[i], predictions[i])
 
                 original_filename = dataset.train_dataset.paths[idx][0].name
-                blended.save(output_dir / original_filename)
+                image_with_mask.save(output_dir / original_filename)
                 idx += 1
 
 
