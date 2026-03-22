@@ -3,11 +3,10 @@ from __future__ import annotations
 from hashlib import sha256
 from pathlib import Path
 
-import numpy as np
 import torch
 from lightning import LightningDataModule
-from PIL import Image
 from torch.utils.data import DataLoader, Dataset, random_split
+from torchvision.io import ImageReadMode, read_image, write_jpeg, write_png
 from torchvision.transforms.v2 import ColorJitter, Compose
 from tqdm import tqdm
 
@@ -31,18 +30,22 @@ class Subset(Dataset):
     def __len__(self) -> int:
         return len(self.paths)
 
-    def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         image_path, mask_path = self.paths[index]
 
-        image = np.array(Image.open(image_path), dtype=np.float32) / 255.0
-        image = image[np.newaxis, ...]
+        image = read_image(str(image_path), mode=ImageReadMode.GRAY).float() / 255.0
         if self.augment:
             image = self.image_transforms(image)
 
-        mask = np.array(Image.open(mask_path))
-        mask = MergedClasses.convert_image_to_mask(mask)
+        mask_rgb = read_image(str(mask_path), mode=ImageReadMode.RGB)
+        mask = torch.full((mask_rgb.shape[1], mask_rgb.shape[2]), -1, dtype=torch.long)
 
-        return image, mask.astype(np.int64)
+        for class_ in MergedClasses:
+            color_tensor = torch.tensor(class_.to_color(), dtype=torch.uint8).view(3, 1, 1)
+            matches = (mask_rgb == color_tensor).all(dim=0)
+            mask[matches] = class_.value
+
+        return image, mask
 
 
 class MergedDataset(LightningDataModule):
@@ -53,7 +56,7 @@ class MergedDataset(LightningDataModule):
         datasets: list[_SegmentationDataset],
         augment: bool,
         root_dir: Path = Path(__file__).parent / ".data" / "merged",
-        batch_size: int = 32,
+        batch_size: int = 16,
         num_workers: int = 7,
     ) -> None:
         super().__init__()
@@ -74,17 +77,18 @@ class MergedDataset(LightningDataModule):
             for i in range(len(dataset)):
                 image, mask = dataset[i]
 
-                image_pil = Image.fromarray(image)
-                mask_pil = Image.fromarray(MergedClasses.convert_mask_to_image(mask))
+                image_tensor = torch.from_numpy(image).unsqueeze(0)
+                mask_rgb = MergedClasses.convert_mask_to_image(mask)
+                mask_tensor = torch.from_numpy(mask_rgb).permute(2, 0, 1)
 
-                image_hash = sha256(image_pil.tobytes()).hexdigest()[:8]
+                image_hash = sha256(image.tobytes()).hexdigest()[:8]
                 image_path = self.root_dir / f"{image_hash}.jpg"
                 mask_path = image_path.with_suffix(".png")
 
-                image_pil.save(image_path)
-                mask_pil.save(mask_path)
+                write_jpeg(image_tensor, str(image_path))
+                write_png(mask_tensor, str(mask_path))
 
-    def setup(self, stage: str | None = None) -> None:  # noqa: ARG002 stage is a kwarg in the parent method so it can not be renamed
+    def setup(self, stage: str | None = None) -> None:  # noqa: ARG002
         """Load the paths and do the dataset split."""
         image_paths = sorted(self.root_dir.rglob("*.jpg"))
         mask_paths = [path.with_suffix(".png") for path in image_paths]
@@ -130,6 +134,6 @@ class MergedDataset(LightningDataModule):
 
 
 if __name__ == "__main__":
-    dataset = MergedDataset()
+    dataset = MergedDataset(datasets=[], augment=False)
     dataset.prepare_data()
     dataset.setup()

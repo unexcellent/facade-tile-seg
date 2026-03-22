@@ -54,7 +54,7 @@ class FacadeSegmenter(LightningModule):
         logits = self(x)
         loss = self.loss_fn(logits, y)
 
-        output = {"val_loss": loss}
+        output = {"val_loss": loss.detach()}
         self.validation_step_outputs.append(output)
         return output
 
