@@ -17,18 +17,20 @@ class FacadeSegmenter(LightningModule):
 
     def __init__(
         self,
-        encoder_name: str = "resnet34",
+        model: nn.Module | None,
         learning_rate: float = 1e-3,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
         self.learning_rate = learning_rate
 
-        self.model = smp.Unet(
-            encoder_name=encoder_name,
-            encoder_weights="imagenet",
-            in_channels=1,
-            classes=len(MergedClasses),
+        self.model = (
+            model
+            if model is not None
+            else smp.Unet(
+                in_channels=1,
+                classes=len(MergedClasses),
+            )
         )
         self.loss_fn = nn.CrossEntropyLoss()
 
