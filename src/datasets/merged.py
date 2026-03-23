@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from hashlib import sha256
 from pathlib import Path
 
@@ -48,64 +49,53 @@ class MergedDataset(LightningDataModule):
 
     def __init__(
         self,
-        datasets: list[_SegmentationDataset],
+        train_datasets: list[_SegmentationDataset],
+        test_datasets: list[_SegmentationDataset],
         augment: bool,
-        root_dir: Path = Path(__file__).parent / ".data" / "merged",
+        root_dir: Path | None = None,
         batch_size: int = 16,
-        num_workers: int = 7,
     ) -> None:
         super().__init__()
-        self.datasets = datasets
+        self.train_datasets = train_datasets
+        self.test_datasets = test_datasets
         self.augment = augment
-        self.root_dir = root_dir
+        self.root_dir = root_dir or Path(__file__).parent / ".data" / "merged"
         self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.num_workers = 7
 
     def prepare_data(self) -> None:
-        """Download and process the data."""
-        self.root_dir.mkdir(parents=True)
-        pbar = tqdm(self.datasets, desc="Processing Datasets")
-        for dataset in pbar:
-            for i in range(len(dataset)):
-                image, mask = dataset[i]
-
-                image_tensor = torch.from_numpy(image).unsqueeze(0)
-                mask_rgb = MergedClasses.convert_mask_to_image(mask)
-                mask_tensor = torch.from_numpy(mask_rgb).permute(2, 0, 1)
-
-                image_hash = sha256(image.tobytes()).hexdigest()[:8]
-                image_path = self.root_dir / f"{image_hash}.jpg"
-                mask_png_path = image_path.with_suffix(".png")
-                mask_npy_path = image_path.with_suffix(".npy")
-
-                write_jpeg(image_tensor, str(image_path))
-                write_png(mask_tensor, str(mask_png_path))
-                np.save(mask_npy_path, mask)
+        """Return the final dataset merged from the sub-datasets."""
+        _process_datasets(self.train_datasets, self.root_dir / "train")
+        _process_datasets(self.test_datasets, self.root_dir / "test")
 
     def setup(self, stage: str | None = None) -> None:  # noqa: ARG002
         """Load the paths and do the dataset split."""
-        image_paths = sorted(self.root_dir.rglob("*.jpg"))
-        mask_paths = [path.with_suffix(".npy") for path in image_paths]
-        paths = list(zip(image_paths, mask_paths, strict=True))
+        train_dir = self.root_dir / "train"
+        test_dir = self.root_dir / "test"
 
-        train_len = int(0.6 * len(paths))
-        val_len = int(0.2 * len(paths))
-        test_len = len(paths) - train_len - val_len
+        train_image_paths = sorted(train_dir.rglob("*.jpg"))
+        train_mask_paths = [path.with_suffix(".npy") for path in train_image_paths]
+        train_paths = list(zip(train_image_paths, train_mask_paths, strict=True))
 
-        train_indices, val_indices, test_indices = random_split(
-            range(len(paths)),
-            [train_len, val_len, test_len],
+        test_image_paths = sorted(test_dir.rglob("*.jpg"))
+        test_mask_paths = [path.with_suffix(".npy") for path in test_image_paths]
+        test_paths = list(zip(test_image_paths, test_mask_paths, strict=True))
+
+        train_len = int(0.8 * len(train_paths))
+        val_len = len(train_paths) - train_len
+
+        train_indices, val_indices = random_split(
+            range(len(train_paths)),
+            [train_len, val_len],
             generator=torch.Generator().manual_seed(0),
         )
 
-        self.train_dataset = Subset(paths, train_indices, augment=self.augment)
-        self.val_dataset = Subset(paths, val_indices)
-        self.test_dataset = Subset(paths, test_indices)
-
-        self.data = Subset(paths, list(range(len(paths))))
+        self.train_dataset = Subset(train_paths, train_indices, augment=self.augment)
+        self.val_dataset = Subset(train_paths, val_indices)
+        self.test_dataset = Subset(test_paths, list(range(len(test_paths))))
 
     def train_dataloader(self) -> DataLoader:
-        """Return the training dataloader."""
+        """Load the paths and do the dataset split."""
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -123,11 +113,35 @@ class MergedDataset(LightningDataModule):
             self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers
         )
 
-    def __len__(self) -> int:
-        return len(self.data)
 
+def _process_datasets(datasets: list[_SegmentationDataset], target_dir: Path) -> None:
+    total_images = sum([len(dataset) for dataset in datasets])
+    if len(list(target_dir.glob("*.jpg"))) == total_images - 1:
+        return
 
-if __name__ == "__main__":
-    dataset = MergedDataset(datasets=[], augment=False)
-    dataset.prepare_data()
-    dataset.setup()
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    progress_bar = tqdm(desc=f"Processing to {target_dir.name}", total=total_images)
+    for dataset in datasets:
+        for i in range(len(dataset)):
+            image, mask = dataset[i]
+
+            image_hash = sha256(image.tobytes()).hexdigest()[:32]
+            image_path = target_dir / f"{image_hash}.jpg"
+
+            image_tensor = torch.from_numpy(image).unsqueeze(0)
+            mask_rgb = MergedClasses.convert_mask_to_image(mask)
+            mask_tensor = torch.from_numpy(mask_rgb).permute(2, 0, 1)
+
+            mask_png_path = image_path.with_suffix(".png")
+            mask_npy_path = image_path.with_suffix(".npy")
+
+            write_jpeg(image_tensor, str(image_path))
+            write_png(mask_tensor, str(mask_png_path))
+            np.save(mask_npy_path, mask)
+
+            progress_bar.update(1)
+
+    progress_bar.close()

@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 from src.datasets.cmp_facade import CMPFacade
-from src.datasets.hznu import Hznu
 from src.datasets.irregular_facades import IrregularFacades
 from src.train import TrainingConfig, train
 
@@ -12,9 +11,10 @@ def compare() -> None:
     configs = [
         TrainingConfig(name="Baseline"),
         TrainingConfig(name="No Augmentation", augment=False),
-        TrainingConfig(name="Only Hznu", datasets=[Hznu.download()]),
-        TrainingConfig(name="Only Irregular Facades", datasets=[IrregularFacades.download()]),
-        TrainingConfig(name="Only CMP", datasets=[CMPFacade.download()]),
+        TrainingConfig(
+            name="Train on Irregular Facades", train_datasets=[IrregularFacades.download()]
+        ),
+        TrainingConfig(name="Train on CMP", train_datasets=[CMPFacade.download()]),
     ]
 
     results = {}
