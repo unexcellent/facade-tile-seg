@@ -63,9 +63,6 @@ class MergedDataset(LightningDataModule):
 
     def prepare_data(self) -> None:
         """Download and process the data."""
-        if self.root_dir.is_dir():
-            return
-
         self.root_dir.mkdir(parents=True)
         pbar = tqdm(self.datasets, desc="Processing Datasets")
         for dataset in pbar:
