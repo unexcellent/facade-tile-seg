@@ -14,7 +14,6 @@ pillow = "12.1.0"
 torchvision = "0.24.1"
 requests = "^2.32.5"
 lightning = "^2.6.1"
-segmentation-models-pytorch = "^0.5.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy-extensions = "<2.0"

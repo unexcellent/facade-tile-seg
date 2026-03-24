@@ -124,6 +124,9 @@ class MergedDataset(LightningDataModule):
 
 
 def _process_datasets(datasets: list[_SegmentationDataset], target_dir: Path) -> None:
+    if len(datasets) == 0:
+        return
+
     total_images = sum([len(dataset) for dataset in datasets])
     if len(list(target_dir.glob("*.jpg"))) == total_images - 1:
         return
