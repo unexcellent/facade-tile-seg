@@ -1,9 +1,15 @@
-import segmentation_models_pytorch as smp
 import torch
 from lightning import LightningModule
 from torch import Tensor, nn
-from torchmetrics.classification import MulticlassJaccardIndex
+from torchmetrics.classification import (
+    MulticlassAccuracy,
+    MulticlassF1Score,
+    MulticlassJaccardIndex,
+    MulticlassPrecision,
+    MulticlassRecall,
+)
 
+from src.attention import AttentionUnet
 from src.datasets.merged_classes import MergedClasses
 
 
@@ -14,6 +20,10 @@ class FacadeSegmenter(LightningModule):
     loss_fn: nn.Module
     learning_rate: float
     test_iou_metric: MulticlassJaccardIndex
+    test_acc_metric: MulticlassAccuracy
+    test_prec_metric: MulticlassPrecision
+    test_rec_metric: MulticlassRecall
+    test_f1_metric: MulticlassF1Score
 
     def __init__(
         self,
@@ -24,17 +34,16 @@ class FacadeSegmenter(LightningModule):
         self.save_hyperparameters()
         self.learning_rate = learning_rate
 
-        self.model = (
-            model
-            if model is not None
-            else smp.Unet(
-                in_channels=1,
-                classes=len(MergedClasses),
-            )
-        )
+        self.model = model if model is not None else AttentionUnet()
         self.loss_fn = nn.CrossEntropyLoss()
 
-        self.test_iou_metric = MulticlassJaccardIndex(num_classes=len(MergedClasses))
+        num_classes = len(MergedClasses)
+        self.test_iou_metric = MulticlassJaccardIndex(num_classes=num_classes)
+        self.test_acc_metric = MulticlassAccuracy(num_classes=num_classes, average="macro")
+        self.test_prec_metric = MulticlassPrecision(num_classes=num_classes, average="macro")
+        self.test_rec_metric = MulticlassRecall(num_classes=num_classes, average="macro")
+        self.test_f1_metric = MulticlassF1Score(num_classes=num_classes, average="macro")
+
         self.validation_step_outputs: list[dict[str, Tensor]] = []
 
     def forward(self, x: Tensor) -> Tensor:
@@ -74,15 +83,28 @@ class FacadeSegmenter(LightningModule):
         loss = self.loss_fn(logits, y)
 
         preds = torch.argmax(logits, dim=1)
+
         self.test_iou_metric.update(preds, y)
+        self.test_acc_metric.update(preds, y)
+        self.test_prec_metric.update(preds, y)
+        self.test_rec_metric.update(preds, y)
+        self.test_f1_metric.update(preds, y)
 
         self.log("test_loss", loss, prog_bar=True)
 
     def on_test_epoch_end(self) -> None:
         """Log the test metrics."""
-        miou = self.test_iou_metric.compute()
-        self.log("test_miou", miou)
+        self.log("test_miou", self.test_iou_metric.compute())
+        self.log("test_acc", self.test_acc_metric.compute())
+        self.log("test_precision", self.test_prec_metric.compute())
+        self.log("test_recall", self.test_rec_metric.compute())
+        self.log("test_f1", self.test_f1_metric.compute())
+
         self.test_iou_metric.reset()
+        self.test_acc_metric.reset()
+        self.test_prec_metric.reset()
+        self.test_rec_metric.reset()
+        self.test_f1_metric.reset()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Return the optimizer used."""

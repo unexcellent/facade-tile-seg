@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from lightning import LightningModule, Trainer
 from torch.nn import Module
 
+from src.attention import AttentionUnet
 from src.datasets._util import _SegmentationDataset
 from src.datasets.cmp_facade import CMPFacade
 from src.datasets.hznu import Hznu
@@ -36,9 +37,9 @@ class TrainingConfig:
     model: Module | None = None
 
 
-def train(config: TrainingConfig) -> tuple[LightningModule, float]:
-    """Train a model based on a TrainingConfig and return its mIoU."""
-    trainer = Trainer(max_epochs=config.max_epochs, precision="16-mixed")
+def train(config: TrainingConfig) -> tuple[LightningModule, dict[str, float]]:
+    """Train a model based on a TrainingConfig and return its evaluation metrics."""
+    trainer = Trainer(max_epochs=config.max_epochs, precision="16-mixed", deterministic=True)
     model = FacadeSegmenter(config.model)
     dataset = MergedDataset(
         train_datasets=config.train_datasets,
@@ -48,8 +49,8 @@ def train(config: TrainingConfig) -> tuple[LightningModule, float]:
 
     trainer.fit(model, dataset)
     performance = trainer.test(model, dataset)[-1]
-    return model, performance["test_miou"]
+    return model, dict(performance)
 
 
 if __name__ == "__main__":
-    train(TrainingConfig())
+    train(TrainingConfig(max_epochs=1, model=AttentionUnet()))
